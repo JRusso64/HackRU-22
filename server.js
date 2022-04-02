@@ -16,6 +16,13 @@ var MessagingResponse = require('twilio').twiml.MessagingResponse;
 // ok
 
 
+// mongoose
+const dbConfig = require('./db/dbconfig');
+mongoose.connect(dbConfig.dbUrl, dbConfig.dbOptions, (err) => {
+	if (err) { console.error(err); }
+	else 	 { console.log('Connected to mongodb succesfully :)'); }
+});
+
 const router = express.Router();
 
 const PORT = process.env.PORT || 5000;
