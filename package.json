@@ -1,0 +1,25 @@
+{
+  "name": "hackru-22",
+  "version": "1.0.0",
+  "description": "This server will send you personalized texts to track how your day went.",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MrGorbunov/HackRU-22.git"
+  },
+  "author": "Michael Gorbunov, John Russo, David Fabian, Sanviseth Chou",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/MrGorbunov/HackRU-22/issues"
+  },
+  "homepage": "https://github.com/MrGorbunov/HackRU-22#readme",
+  "dependencies": {
+    "express": "^4.17.3"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.15"
+  }
+}
