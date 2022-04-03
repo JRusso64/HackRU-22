@@ -16,6 +16,7 @@ const phrase = require('./strings');
 const texter = require('./texter');
 const db = require('./dbwrapper');
 const { text } = require('body-parser');
+const { rant_history_sending } = require('./strings');
 
 const router = express.Router();
 
@@ -45,7 +46,8 @@ const txtMode = {
     new_user: 'new_user',
     day_rating: 'day_rating',
     unsubscribed: 'unsubscribed',
-    rant: 'rant'
+    rant: 'rant',
+    rant_history: 'rant-history'
 }
 
 const EXIT_STR = [
@@ -56,12 +58,23 @@ const YES_STR = [
     "yes", "y", "ye", "yea", "yeah"
 ]
 
-function is_exit_message (str) {
-    return EXIT_STR.some(wrd => wrd === str.trim().toLowerCase());
+function is_in_list (word, list) {
+    return list.some(wrd => wrd === word.trim().toLowerCase());
 }
 
-function is_yes_message (str) {
-    return YES_STR.some(wrd => wrd === str.trim.toLowerCase());
+/**
+ * Returns whether the message contains a word in the list.
+ * Ex:
+ * message: "The brown fox jumped"
+ * list: ["brown", "black", "green"]
+ * 
+ * returns true
+ */
+function has_word_in_list (message, list) {
+    return list.some(
+        word => message.trim().toLowerCase().includes(
+            word.trim().toLowerCase()
+    ));
 }
 
 
@@ -74,13 +87,7 @@ app.post('/message', (req, res) => {
     const number = tempBody.From;
     console.log(`New text from ${number}`);
     
-    
-    //client.messages.create({body: 'Hi there', from: '+15732502162', to: '+17329564275'}).then(message => console.log(message.sid));
-
-    // Coming from the database somehow idrk yet
     var mode = db.getData(number, 'state').mode;
-    console.log(`Going into mode ${mode}`);
-
 
     switch (mode) {
         case txtMode.default:
@@ -101,6 +108,10 @@ app.post('/message', (req, res) => {
 
         case txtMode.rant:
             mode_rant(reqData, res, number);
+            break;
+        
+        case txtMode.rant_history:
+            mode_rant_history(reqData, res, number);
             break;
     }
 });
@@ -182,6 +193,7 @@ function mode_unsubbed(reqData, res, number) {
 }
 
 
+// TODO
 function mode_dayrate(reqData, res, number){
 }
 
@@ -194,13 +206,35 @@ function mode_rant(reqData, res, number) {
 
     switch (phase) {
         case 0:
-            texter.sendMsg(number, phrase.rant_startup());
-
+            texter.sendMsg(number, phrase.rant_choose());
+            state_data.phase += 1;
             state_data.mode = txtMode.rant;
-            state_data.phase = 1;
             break;
 
         case 1:
+            START_WORDS = ['start', 'new', 'create', 'make'];
+            VIEW_WORDS = ['history', 'view', 'older', 'look'];
+
+            if (has_word_in_list(reqData, VIEW_WORDS)) {
+                // Transition to rant history
+                const rant_names = [];
+                rant_data.forEach(elm => rant_names.push(elm.name));
+
+                texter.sendMsg(number, phrase.rant_going_to_history(rant_names));
+
+                state_data.mode = txtMode.rant_history;
+                state_data.phase = 0;
+
+            } else if (has_word_in_list(reqData, START_WORDS)) {
+                texter.sendMsg(number, phrase.rant_startup());
+                state_data.phase += 1;
+
+            } else {
+                texter.sendMsg(number, phrase.unable_to_understand());
+            }
+            break;
+
+        case 2:
             const rantName = reqData.trim();
             const emptyRant = {
                 "name": rantName,
@@ -210,11 +244,11 @@ function mode_rant(reqData, res, number) {
 
             texter.sendMsg(number, phrase.rant_ready(rantName));
             
-            state_data.phase = 2;
+            state_data.phase += 1;
             break;
 
-        case 2:
-            if (is_exit_message(reqData)){
+        case 3:
+            if (is_in_list(reqData, EXIT_STR)){
                 const rant_name = rant_data[0].name;
                 texter.sendMsg(number, phrase.rant_finished(rant_name));
 
@@ -232,20 +266,63 @@ function mode_rant(reqData, res, number) {
 }
 
 
-function mode_history(reqData, res, number) {
-  rant_data = db.getData(number, "rant");
-  state_data = db.getData(number,"state");
-  if(reqData.toLowerCase() == "stop") {
-    state_data.mode = txtMode.default;
-  }
-  var hist = "";
-  for(var i = 0; i < 3 && state_data.pageNum < rant_data.rant.length; i++) {
-    for(var message = 0; message < 3; message++) {
-      hist += rant_data[i][message] + "\n";
+function mode_rant_history (reqData, res, number) {
+    state_data = db.getData(number, "state");
+    rant_data = db.getData(number, "rant");
+
+    var number_choice = -1;
+
+    try {
+        number_choice = parseInt(reqData.trim());
+    } catch (err) {
+        texter.sendMsg(number, phrase.unable_to_understand)
+        return;
     }
-    state_data.pageNum++;
-  }
-  hist = "";
-  texter.sendMsg(number, hist + phrase.continue_history());
+
+    const index_choice = number_choice - 1;
+
+    if (index_choice < 0 || index_choice >= rant_data.length) {
+        texter.sendMsg(number, phrase.invalid_choice())
+        return;
+    }
+
+    console.log("Checking if rant is printable");
+
+    if (!rant_data[index_choice] ||
+        !rant_data[index_choice].messages || 
+        rant_data[index_choice].messages.length == 0) {
+            console.log("Found empty rant");
+            texter.sendMsg(number, phrase.rant_history_empty());
+
+    } else {
+        console.log("Rant has content");
+        const rant_name = rant_data[index_choice].name;
+        const rant_msgs = rant_data[index_choice].messages;
+
+        texter.sendMsg(number, phrase.rant_history_sending(rant_name));
+        rant_msgs.forEach(msg => texter.sendMsg(number, msg));
+    }
+
+    state_data.mode = txtMode.default;
+    state_data.phase = 0;
+    db.setData(number, "state", state_data);
 }
+
+
+// function mode_history(reqData, res, number) {
+//   rant_data = db.getData(number, "rant");
+//   state_data = db.getData(number,"state");
+//   if(reqData.toLowerCase() == "stop") {
+//     state_data.mode = txtMode.default;
+//   }
+//   var hist = "";
+//   for(var i = 0; i < 3 && state_data.pageNum < rant_data.rant.length; i++) {
+//     for(var message = 0; message < 3; message++) {
+//       hist += rant_data[i][message] + "\n";
+//     }
+//     state_data.pageNum++;
+//   }
+//   hist = "";
+//   texter.sendMsg(number, hist + phrase.continue_history());
+// }
 
