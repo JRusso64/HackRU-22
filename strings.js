@@ -6,6 +6,8 @@ const responses = {
     new_subscribe: () => "Do you want to subscribe (yes/no)?",
     new_notsubbed: () => "Okie doke! If you ever feel like coming just text again!",
 
+    unsub_return: () => "Hello again! Do you want to subscribe now (yes/no)?",
+
     continue_history: () => "Would you like to view more past messages?",
 
     rant_choose: () => "Would you like to start a new rant or view an older one?",

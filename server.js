@@ -15,8 +15,6 @@ var MessagingResponse = require('twilio').twiml.MessagingResponse;
 const phrase = require('./strings');
 const texter = require('./texter');
 const db = require('./dbwrapper');
-const { text } = require('body-parser');
-const { rant_history_sending } = require('./strings');
 
 const router = express.Router();
 
@@ -180,16 +178,16 @@ function mode_unsubbed(reqData, res, number) {
     const phase = state_data.phase;
 
     switch (phase) {
+        // This means they responded after being 'unsubbed'
+        // we prompt them to ask if they do want to opt in
         case 0:
             texter.sendMsg(number, phrase.unsub_return());
             state_data.phase = 1;
-            state_data.mode = txtMode.unsubscribed;
+            state_data.mode = txtMode.new_user;
             break;
-        
-        case 1:
-            // TODO:
-            
     }
+
+    db.setData(number, "state", state_data);
 }
 
 
@@ -308,21 +306,4 @@ function mode_rant_history (reqData, res, number) {
     db.setData(number, "state", state_data);
 }
 
-
-// function mode_history(reqData, res, number) {
-//   rant_data = db.getData(number, "rant");
-//   state_data = db.getData(number,"state");
-//   if(reqData.toLowerCase() == "stop") {
-//     state_data.mode = txtMode.default;
-//   }
-//   var hist = "";
-//   for(var i = 0; i < 3 && state_data.pageNum < rant_data.rant.length; i++) {
-//     for(var message = 0; message < 3; message++) {
-//       hist += rant_data[i][message] + "\n";
-//     }
-//     state_data.pageNum++;
-//   }
-//   hist = "";
-//   texter.sendMsg(number, hist + phrase.continue_history());
-// }
 
