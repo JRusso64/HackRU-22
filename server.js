@@ -13,6 +13,8 @@ const logger = require('morgan');
 const bodyParsers = require('body-parser');
 var MessagingResponse = require('twilio').twiml.MessagingResponse;
 
+const phrase = require('./strings');
+
 // db stuff
 const db = require('./dbwrapper');
 
@@ -124,7 +126,7 @@ function mode_newuser(reqData, res, number) {
             //resp.message("Do you want to subscribe?");
             client.messages
             .create({
-                body: "Do you want to subscribe?",
+                body: phrase.subscribe,
                 from: "+15732502162",
                 to: number,
             })
@@ -142,7 +144,7 @@ function mode_newuser(reqData, res, number) {
             if(reqData.charAt(0) == 'y'){
                 client.messages
                 .create({
-                    body: "Thank you for signing up!",
+                    body: phrase.signup,
                     from: "+15732502162",
                     to: number,
                 })
@@ -150,7 +152,7 @@ function mode_newuser(reqData, res, number) {
                 
                 client.messages
                 .create({
-                    body: "There are two ways to use this text journal. You can rant by typing RANT which allows you to continuously type. The second option is responding when you receieve a text",
+                    body: phrase.intro,
                     from: "+15732502162",
                     to: number,
                 })
