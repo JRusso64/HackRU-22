@@ -3,25 +3,17 @@
  *
  * Entry point for our server
  */
-//test comment
+
 require('dotenv').config();
 const express = require('express');
 const client = require('twilio')(process.env.ACCOUNTSID, process.env.AUTHTOKEN);
 const cors = require('cors');
 const logger = require('morgan');
-const mongoose = require('mongoose');
 const bodyParsers = require('body-parser');
 var MessagingResponse = require('twilio').twiml.MessagingResponse;
 
-// ok
 
-
-// mongoose
 const dbConfig = require('./db/dbconfig');
-mongoose.connect(dbConfig.dbUrl, dbConfig.dbOptions, (err) => {
-	if (err) { console.error(err); }
-	else 	 { console.log('Connected to mongodb succesfully :)'); }
-});
 
 const router = express.Router();
 
