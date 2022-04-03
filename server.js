@@ -44,6 +44,7 @@ const txtMode = {
     default: 'default',
     new_user: 'new_user',
     day_rating: 'day_rating',
+    unsubscribed: 'unsubscribed',
     rant: 'rant'
 }
 
@@ -94,14 +95,8 @@ function switch_to_mode(reqData, res, number) {
     var mode = state_data.mode;
 
     if (user_is_new) {
-        state_data.mode = txtMode.new_user;
         mode_newuser(reqData, res, number);
-
     } else if (reqData.toLowerCase() == "rant") {
-        state_data.mode = txtMode.rant;
-        var rant_data = db.getData(number, "rant");
-        rant_data = [[]].concat(rant_data);
-        db.setData(number, "rant", rant_data);
         mode_rant(reqData, res, number)
     }
 
@@ -110,42 +105,42 @@ function switch_to_mode(reqData, res, number) {
 
 
 function mode_newuser(reqData, res, number) {
-    var phase = db.getData(number, "state").phase; /* database lookup */
-    var state_data;
-    console.log(`In mode newuser with phase ${phase}`);
+    var state_data = db.get(number, "state");
+    var phase = state_data.phase; /* database lookup */
+    console.log(`[${String(number).substring(0,4)}] In mode newuser with phase ${phase}`);
 
     switch (phase) {
         case 0:
-            // Send confirmation of subscription text
-            //resp.message("Do you want to subscribe?");
             texter.sendMsg(number, phrase.new_subscribe);
 
-            console.log("Subscribe?")
-            state_data = db.getData(number, "state"); /* database update */
             state_data.phase = 1;
-            db.setData(number, "state", state_data);
+            state_data.mode = txtMode.new_user;
             break;
 
         case 1:
             // Record text & respond based on if they want to join
-            reqData = reqData.toLowerCase();
-            console.log(reqData);
+            reqData = reqData.trim().toLowerCase();
 
-            state_data = db.getData(number, "state");
-
-            if(reqData.charAt(0) == 'y'){
+            if (reqData.charAt(0) == 'y') {
                 texter.sendMsg(number, phrase.new_thanks);
                 texter.sendMsg(number, phrase.new_explanation);
                 
+                state_data.new_user = false;
                 state_data.phase = 0;
                 state_data.mode = txtMode.default;
-                state_data.new_user = false;
+            } else {
+                texter.sendMsg(number, phrase.new_deny);
+
+                state_data.subscribed = false;
+                state_data.phase = 0;
+                state_data.mode = txtMode.unsubscribed;
             }
 
-            db.setData(number, "state", state_data);
             break;
     }
-    
+
+
+    db.setData(number, "state", state_data);
 }
 
 
@@ -157,16 +152,31 @@ function mode_rant(reqData, res, number) {
     state_data = db.getData(number,"state");
     rant_data = db.getData(number, "rant");
 
-    if(reqData.toLowerCase() == ('stoprant')){
-        state_data.phase = 0;
-        state_data.mode = txtMode.default;
-    } else {
-        rant_data[0].push(reqData);
+    const phase = state_data.phase;
+
+    switch (phase) {
+        case 0:
+            rant_data = [[]].concat(rant_data);
+            db.setData(number, "rant", rant_data);
+
+            state_data.mode = txtMode.rant;
+            state_data.phase = 1;
+            break;
+
+        case 1:
+            if (reqData.trim().toLowerCase() == 'stoprant'){
+                state_data.phase = 0;
+                state_data.mode = txtMode.default;
+            } else {
+                rant_data[0].push(reqData);
+            }
+            break;
     }
 
     db.setData(number, "rant", rant_data);
     db.setData(number, "state", state_data);
 }
+
 
 function mode_history(reqData, res, number) {
   rant_data = db.getData(number, "rant");
@@ -185,13 +195,3 @@ function mode_history(reqData, res, number) {
   texter.sendMsg(number, hist + phrase.continue_history);
 }
 
-
-
-//
-// client.messages.create({
-//     body: 'How has your day been?',
-//     from: '+15732502162',
-//     to: reqData.From
-//   })
-//  .then(message => console.log(message.sid));
-// 
