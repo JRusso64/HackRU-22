@@ -13,7 +13,7 @@ const bodyParsers = require('body-parser');
 var MessagingResponse = require('twilio').twiml.MessagingResponse;
 
 const phrase = require('./strings');
-const texter = reqiure('./texter');
+const texter = require('./texter');
 const db = require('./dbwrapper');
 const { text } = require('body-parser');
 
@@ -31,7 +31,7 @@ app.use(bodyParsers.json());
 app.get('/', (req, res) => res.send("Hello!"));
 
 app.get('/test', (req, res) => {
-  res.send("Hello!");
+    console.log(db.getAllUsers());
 });
 
 app.listen(PORT, () => console.log(`Now listening on port ${PORT} :)`));
