@@ -6,14 +6,15 @@
 
 require('dotenv').config();
 const express = require('express');
+const schedule = require('node-schedule');
 const client = require('twilio')(process.env.ACCOUNTSID, process.env.AUTHTOKEN);
 const cors = require('cors');
 const logger = require('morgan');
 const bodyParsers = require('body-parser');
 var MessagingResponse = require('twilio').twiml.MessagingResponse;
 
-
-const dbConfig = require('./db/dbconfig');
+// db stuff
+const dbWrapper = require('./dbwrapper');
 
 const router = express.Router();
 
@@ -26,6 +27,12 @@ app.use(bodyParsers.urlencoded({ extended: true }));
 app.use(bodyParsers.json());
 
 app.get('/', (req, res) => res.send("Hello!"));
+
+app.get('/test', (req, res) => {
+  console.log(dbWrapper.dayRatingAdd(7322586902, '2021', 'asd', 5));
+
+  res.send("Hello!");
+});
 
 app.listen(PORT, () => console.log(`Now listening on port ${PORT} :)`));
 
@@ -40,14 +47,17 @@ app.post('/message', function (req, res) {
 
     console.log(test.From);
     console.log(test.Body);
+    
+    const job = schedule.scheduleJob('*/15 * * * * *', function(){
+      console.log('bru');
+      client.messages.create({
 
-    client.messages.create({
-
-     body: 'How has your day been?',
-     from: '+15732502162',
-     to: process.env.TEST_NUMBER
-   })
-  .then(message => console.log(message.sid));
+       body: 'How has your day been?',
+       from: '+15732502162',
+       to: process.env.TEST_NUMBER
+      })
+      .then(message => console.log(message.sid));
+    });
    
   res.end(resp.toString());
 });
