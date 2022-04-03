@@ -35,7 +35,10 @@ const responses = {
 	profile_list_goals: (goalList) => `Nice name! Which of the following is do you want to work on most: ${goalList.map((name, index) => {return `(${index+1}) ${name}`;}).join(", ")}?`,
 	profile_specifics_prompt: (specifics) => `Lets refine that goal a little. For example you could focus more specifically on ${specifics.join(", ")}. List some more specific areas of focus, comma seperated.`,
 	profile_confirmation: (name, goal, specifics) => `To confirm, is everything here correct?\nName: ${name}\nGoal: ${goal}\nFocus: ${specifics.join(", ")}`,
+	profile_display: (name, goal, specifics) => `Name: ${name}\nGoal: ${goal}\nFocus: ${specifics.join(", ")}`,
 	profile_everything_correct: () => "Wonderful!",
+
+	default_list: () => "What would you like to do?\n (1) View your profile\n (2) Update your profile\n (3) Play tic tac toe\n (4) Goto notes\n (5) View your daily goal"
 
 
 }

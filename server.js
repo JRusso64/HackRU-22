@@ -149,7 +149,7 @@ app.post('/message', (req, res) => {
             break;
 
 
-        // Applet
+        // Ranting applet
         case txtMode.rant:
             mode_rant(reqData, res, number);
             break;
@@ -168,31 +168,75 @@ app.post('/message', (req, res) => {
 
 
 function switch_to_mode(reqData, res, number) {
-    /*
-    if new user -> ask for confirmation
-    */
-    var resp = new MessagingResponse();
     var state_data = db.getData(number, 'state');
+    
+    var phase = state_data.phase;
 
-    var is_profile_setup = state_data.profile_setup;
-    var mode = state_data.mode;
+    switch (phase) {
+        // Show options table
+        case 0:
+            texter.sendMsg(number, phrase.default_list());
+            state_data.phase += 1;
+            break;
+            
 
-    const PROFILESETUP_WORDS = ["profile", "setup"];
-    const TICTACTOE_WORDS = ["tic", "tac", "toe", "game", "play", "tictac", "tictoe", "tactoe"];
-    const RANT_WORDS = ["rant", "vent"];
+        // Read their answer
+        case 1:
+            const index_choice = parse_number_input(reqData, 1, 5);
+            console.log(`Input data: ${index_choice}`);
 
-    if (!is_profile_setup) {
-        mode_profile_setup(reqData, res, number);
+            if (index_choice === -1) {
+                texter.sendMsg(number, phrase.invalid_choice());
+                return;
+            }
 
-    } else if (has_word_in_list(reqData, PROFILESETUP_WORDS)) {
-        mode_profile(reqData, res, number);
+            switch (index_choice) {
+                case 1: // view profile
+                    const name = db.getData(number, 'profile').name;
+                    const goalNum = db.getData(number, 'profile').goal;
+                    const goal = healthActions.goals[goalNum];
+                    const specifics = db.getData(number, 'profile').specifics;
+                    texter.sendMsg(number, phrase.profile_display(name, goal, specifics));
+                    state_data.phase = 0;
+                    break;
 
-    } else if (has_word_in_list(reqData, RANT_WORDS)) {
-        mode_rant(reqData, res, number);
+                case 2: // update profile
+                    texter.sendMsg(number, phrase.profile_name());
+                    state_data.phase = 3;
+                    state_data.mode = txtMode.profile_setup;
+                    break;
+                
+                case 3: // tic tac toe
+                    state_data.phase = 0;
+                    state_data.mode = txtMode.tic_tac_toe;
+                    db.setData(number, 'state', state_data);
+                    mode_tictactoe(reqData, res, number);
+                    break;
+                
+                case 4: // Notes
+                    state_data.phase = 0;
+                    db.setData(number, 'state', state_data);
+                    mode_rant();
+                    break;
+                
+                case 5: // View Daily Goal
+                    state_data.phase = 0;
+                    const action_num = db.getData(number, 'profile').goal;
+                    if (action_num === -1) {
+                        texter.sendMsg(number, "You need to setup your profile before I can give you goals!");
+                    } else {
+                        const possible_dailies = healthActions.actions[action_num];
+                        const random_ind = Math.floor(Math.random() * possible_dailies.length);
+                        texter.sendMsg(number, `Your goal for today is "${possible_dailies[random_ind]}".`);
+                    }
+                    
+                    break;
 
-    } else if (has_word_in_list(reqData, TICTACTOE_WORDS)) {
-        mode_tictactoe(reqData, res, number);
+            }
+            break;
     }
+
+    db.setData(number, 'state', state_data);
 }
 
 
