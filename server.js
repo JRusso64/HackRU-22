@@ -6,6 +6,7 @@
 //test comment
 require('dotenv').config();
 const express = require('express');
+const schedule = require('node-schedule');
 const client = require('twilio')(process.env.ACCOUNTSID, process.env.AUTHTOKEN);
 const cors = require('cors');
 const logger = require('morgan');
@@ -48,14 +49,17 @@ app.post('/message', function (req, res) {
 
     console.log(test.From);
     console.log(test.Body);
+    
+    const job = schedule.scheduleJob('*/15 * * * * *', function(){
+      console.log('bru');
+      client.messages.create({
 
-    client.messages.create({
-
-     body: 'How has your day been?',
-     from: '+15732502162',
-     to: process.env.TEST_NUMBER
-   })
-  .then(message => console.log(message.sid));
+       body: 'How has your day been?',
+       from: '+15732502162',
+       to: process.env.TEST_NUMBER
+      })
+      .then(message => console.log(message.sid));
+    });
    
   res.end(resp.toString());
 });
