@@ -29,7 +29,7 @@ app.use(bodyParsers.json());
 app.get('/', (req, res) => res.send("Hello!"));
 
 app.get('/test', (req, res) => {
-  console.log(dbWrapper.dayRatingAdd(7322586902, '2021', 'asd', 5));
+
 
   res.send("Hello!");
 });
