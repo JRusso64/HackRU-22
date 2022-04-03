@@ -76,6 +76,30 @@ function has_word_in_list (message, list) {
 }
 
 
+/**
+ * Parses the string passed into an integer. If it is
+ * out of the bounds or invalid, will return -1. -1
+ * should as thus not be a valid option.
+ * Min and max are inclusive acceptable values.
+ */
+function parse_number_input (str, min, max) {
+    var number_choice = -1;
+
+    try {
+        number_choice = parseInt(str.trim());
+    } catch (err) {
+        return -1;
+    }
+
+    if (number_choice < min || number_choice > max) {
+        return -1;
+    } else {
+        return number_choice;
+    }
+}
+
+
+
 
 
 
@@ -268,21 +292,17 @@ function mode_rant_history (reqData, res, number) {
     state_data = db.getData(number, "state");
     rant_data = db.getData(number, "rant");
 
-    var number_choice = -1;
+    // This only ever gets executed once before changing mode,
+    // hence the lack of a switch statement
 
-    try {
-        number_choice = parseInt(reqData.trim());
-    } catch (err) {
-        texter.sendMsg(number, phrase.unable_to_understand)
+    const index_choice = parse_number_input(1, rant_data.length);
+
+    if (index_choice === -1) {
+        texter.sendMsg(number, phrase.invalid_choice());
         return;
     }
 
-    const index_choice = number_choice - 1;
-
-    if (index_choice < 0 || index_choice >= rant_data.length) {
-        texter.sendMsg(number, phrase.invalid_choice())
-        return;
-    }
+    index_choice--;
 
     console.log("Checking if rant is printable");
 
