@@ -17,6 +17,12 @@
  console.log(DEFAULT_FILES);
  
  const DBWrapper = {
+	getAllUsers: () => {
+		return fs
+			.readdirSync(path.join(__dirname, 'db'))
+			.filter(foldname => {return foldname !== "defaults"});
+	},
+
 	 // Returns T / F if a user exists
 	 userExists: (user_number) => {
 		 const uid = String(user_number);

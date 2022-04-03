@@ -7,14 +7,15 @@
 require('dotenv').config();
 const express = require('express');
 const schedule = require('node-schedule');
-const client = require('twilio')(process.env.ACCOUNTSID, process.env.AUTHTOKEN);
 const cors = require('cors');
 const logger = require('morgan');
 const bodyParsers = require('body-parser');
 var MessagingResponse = require('twilio').twiml.MessagingResponse;
 
-// db stuff
+const phrase = require('./strings');
+const texter = reqiure('./texter');
 const db = require('./dbwrapper');
+const { text } = require('body-parser');
 
 const router = express.Router();
 
@@ -30,8 +31,6 @@ app.use(bodyParsers.json());
 app.get('/', (req, res) => res.send("Hello!"));
 
 app.get('/test', (req, res) => {
-
-
   res.send("Hello!");
 });
 
@@ -66,7 +65,7 @@ app.post('/message', (req, res) => {
     // TODO: Make dictionary lookup
     switch (mode) {
         case txtMode.default:
-            mode_default(reqData, res, number);
+            switch_to_mode(reqData, res, number);
             break;
 
         case txtMode.new_user:
@@ -84,8 +83,7 @@ app.post('/message', (req, res) => {
 });
 
 
-function mode_default(reqData, res, number) {
-    // We switch into rant mode if the message says rant
+function switch_to_mode(reqData, res, number) {
     /*
     if new user -> ask for confirmation
     */
@@ -99,7 +97,7 @@ function mode_default(reqData, res, number) {
         state_data.mode = txtMode.new_user;
         mode_newuser(reqData, res, number);
 
-    }else if(reqData.toLowerCase() == ("rant")) {
+    } else if (reqData.toLowerCase() == "rant") {
         state_data.mode = txtMode.rant;
         var rant_data = db.getData(number, "rant");
         rant_data = [[]].concat(rant_data);
@@ -112,8 +110,6 @@ function mode_default(reqData, res, number) {
 
 
 function mode_newuser(reqData, res, number) {
-
-
     var phase = db.getData(number, "state").phase; /* database lookup */
     var state_data;
     console.log(`In mode newuser with phase ${phase}`);
@@ -122,13 +118,8 @@ function mode_newuser(reqData, res, number) {
         case 0:
             // Send confirmation of subscription text
             //resp.message("Do you want to subscribe?");
-            client.messages
-            .create({
-                body: "Do you want to subscribe?",
-                from: "+15732502162",
-                to: number,
-            })
-            .then((message) => console.log(message.sid));
+            texter.sendMsg(number, phrase.new_subscribe);
+
             console.log("Subscribe?")
             state_data = db.getData(number, "state"); /* database update */
             state_data.phase = 1;
@@ -139,28 +130,19 @@ function mode_newuser(reqData, res, number) {
             // Record text & respond based on if they want to join
             reqData = reqData.toLowerCase();
             console.log(reqData);
+
+            state_data = db.getData(number, "state");
+
             if(reqData.charAt(0) == 'y'){
-                client.messages
-                .create({
-                    body: "Thank you for signing up!",
-                    from: "+15732502162",
-                    to: number,
-                })
-                .then((message) => console.log(message.sid));
+                texter.sendMsg(number, phrase.new_thanks);
+                texter.sendMsg(number, phrase.new_explanation);
                 
-                client.messages
-                .create({
-                    body: "There are two ways to use this text journal. You can rant by typing RANT which allows you to continuously type. The second option is responding when you receieve a text",
-                    from: "+15732502162",
-                    to: number,
-                })
-                .then((message) => console.log(message.sid));
-                state_data = db.getData(number, "state");
                 state_data.phase = 0;
                 state_data.mode = txtMode.default;
                 state_data.new_user = false;
-                db.setData(number, "state", state_data);
             }
+
+            db.setData(number, "state", state_data);
             break;
     }
     
@@ -178,7 +160,7 @@ function mode_rant(reqData, res, number) {
     if(reqData.toLowerCase() == ('stoprant')){
         state_data.phase = 0;
         state_data.mode = txtMode.default;
-    }else{
+    } else {
         rant_data[0].push(reqData);
     }
 
