@@ -14,7 +14,7 @@ const bodyParsers = require('body-parser');
 var MessagingResponse = require('twilio').twiml.MessagingResponse;
 
 // db stuff
-const dbWrapper = require('./dbwrapper');
+const db = require('./dbwrapper');
 
 const router = express.Router();
 
