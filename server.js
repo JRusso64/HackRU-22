@@ -48,6 +48,25 @@ const txtMode = {
     rant: 'rant'
 }
 
+const EXIT_STR = [
+    "finish", "finished", "done"
+]
+
+const YES_STR = [
+    "yes", "y", "ye", "yea", "yeah"
+]
+
+function is_exit_message (str) {
+    return EXIT_STR.some(wrd => wrd === str.trim().toLowerCase());
+}
+
+function is_yes_message (str) {
+    return YES_STR.some(wrd => wrd === str.trim.toLowerCase());
+}
+
+
+
+
 
 app.post('/message', (req, res) => {
     const tempBody = req.body;
@@ -63,10 +82,13 @@ app.post('/message', (req, res) => {
     console.log(`Going into mode ${mode}`);
 
 
-    // TODO: Make dictionary lookup
     switch (mode) {
         case txtMode.default:
             switch_to_mode(reqData, res, number);
+            break;
+
+        case txtMode.unsubscribed:
+            mode_unsubbed(reqData, res, number);
             break;
 
         case txtMode.new_user:
@@ -99,19 +121,17 @@ function switch_to_mode(reqData, res, number) {
     } else if (reqData.toLowerCase() == "rant") {
         mode_rant(reqData, res, number)
     }
-
-    db.setData(number, "state", state_data);
 }
 
 
 function mode_newuser(reqData, res, number) {
-    var state_data = db.get(number, "state");
+    var state_data = db.getData(number, "state");
     var phase = state_data.phase; /* database lookup */
     console.log(`[${String(number).substring(0,4)}] In mode newuser with phase ${phase}`);
 
     switch (phase) {
         case 0:
-            texter.sendMsg(number, phrase.new_subscribe);
+            texter.sendMsg(number, phrase.new_subscribe());
 
             state_data.phase = 1;
             state_data.mode = txtMode.new_user;
@@ -122,14 +142,14 @@ function mode_newuser(reqData, res, number) {
             reqData = reqData.trim().toLowerCase();
 
             if (reqData.charAt(0) == 'y') {
-                texter.sendMsg(number, phrase.new_thanks);
-                texter.sendMsg(number, phrase.new_explanation);
+                texter.sendMsg(number, phrase.new_thanks());
+                texter.sendMsg(number, phrase.new_explanation());
                 
                 state_data.new_user = false;
                 state_data.phase = 0;
                 state_data.mode = txtMode.default;
             } else {
-                texter.sendMsg(number, phrase.new_deny);
+                texter.sendMsg(number, phrase.new_notsubbed());
 
                 state_data.subscribed = false;
                 state_data.phase = 0;
@@ -139,8 +159,26 @@ function mode_newuser(reqData, res, number) {
             break;
     }
 
-
     db.setData(number, "state", state_data);
+}
+
+
+function mode_unsubbed(reqData, res, number) {
+    state_data = db.getData(number, "state");
+
+    const phase = state_data.phase;
+
+    switch (phase) {
+        case 0:
+            texter.sendMsg(number, phrase.unsub_return());
+            state_data.phase = 1;
+            state_data.mode = txtMode.unsubscribed;
+            break;
+        
+        case 1:
+            // TODO:
+            
+    }
 }
 
 
@@ -156,19 +194,35 @@ function mode_rant(reqData, res, number) {
 
     switch (phase) {
         case 0:
-            rant_data = [[]].concat(rant_data);
-            db.setData(number, "rant", rant_data);
+            texter.sendMsg(number, phrase.rant_startup());
 
             state_data.mode = txtMode.rant;
             state_data.phase = 1;
             break;
 
         case 1:
-            if (reqData.trim().toLowerCase() == 'stoprant'){
+            const rantName = reqData.trim();
+            const emptyRant = {
+                "name": rantName,
+                "messages": []
+            };
+            rant_data = [emptyRant].concat(rant_data);
+
+            texter.sendMsg(number, phrase.rant_ready(rantName));
+            
+            state_data.phase = 2;
+            break;
+
+        case 2:
+            if (is_exit_message(reqData)){
+                const rant_name = rant_data[0].name;
+                texter.sendMsg(number, phrase.rant_finished(rant_name));
+
                 state_data.phase = 0;
                 state_data.mode = txtMode.default;
             } else {
-                rant_data[0].push(reqData);
+                const msg_list = rant_data[0].messages;
+                rant_data[0].messages = msg_list.concat([reqData.trim()]);
             }
             break;
     }
@@ -192,6 +246,6 @@ function mode_history(reqData, res, number) {
     state_data.pageNum++;
   }
   hist = "";
-  texter.sendMsg(number, hist + phrase.continue_history);
+  texter.sendMsg(number, hist + phrase.continue_history());
 }
 
