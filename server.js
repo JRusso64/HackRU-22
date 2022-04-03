@@ -178,30 +178,11 @@ function mode_history(reqData, res, number) {
   for(var i = 0; i < 3 && state_data.pageNum < rant_data.rant.length; i++) {
     for(var message = 0; message < 3; message++) {
       hist += rant_data[i][message] + "\n";
-      client.messages
-          .create({
-              body: hist,
-              from: "+15732502162",
-              to: number,
-          })
-          .then((message) => console.log(message.sid));
     }
     state_data.pageNum++;
   }
   hist = "";
-  client.messages
-            .create({
-                body: hist,
-                from: "+15732502162",
-                to: number,
-            })
-            .then((message) => console.log(message.sid));
-  client.messages
-              .create({
-                  body: phrase.continue_history,
-                  from: "+15732502162",
-                  to: number,
-              })
+  texter.sendMsg(number, hist + phrase.continue_history);
 }
 
 
