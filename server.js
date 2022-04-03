@@ -4,6 +4,8 @@
  * Entry point for our server
  */
 
+// TODO: Create some kind of graph based system ?
+
 require('dotenv').config();
 const express = require('express');
 const schedule = require('node-schedule');
@@ -45,7 +47,8 @@ const txtMode = {
     day_rating: 'day_rating',
     unsubscribed: 'unsubscribed',
     rant: 'rant',
-    rant_history: 'rant-history'
+    rant_history: 'rant-history',
+    tic_tac_toe: 'tic-tac-toe',
 }
 
 const EXIT_STR = [
@@ -54,6 +57,10 @@ const EXIT_STR = [
 
 const YES_STR = [
     "yes", "y", "ye", "yea", "yeah"
+]
+
+const NO_STR = [
+    "no", "n", "na", "nah"
 ]
 
 function is_in_list (word, list) {
@@ -107,9 +114,11 @@ app.post('/message', (req, res) => {
     const tempBody = req.body;
     const reqData = tempBody.Body;
     const number = tempBody.From;
-    console.log(`New text from ${number}`);
     
     var mode = db.getData(number, 'state').mode;
+    var phase = db.getData(number, 'state').phase;
+
+    console.log(`New text from ${number}. Mode ${mode}, phase ${phase}`);
 
     switch (mode) {
         case txtMode.default:
@@ -135,6 +144,10 @@ app.post('/message', (req, res) => {
         case txtMode.rant_history:
             mode_rant_history(reqData, res, number);
             break;
+
+        case txtMode.tic_tac_toe:
+            mode_tictactoe(reqData, res, number);
+            break;
     }
 });
 
@@ -149,10 +162,14 @@ function switch_to_mode(reqData, res, number) {
     var user_is_new = state_data.new_user;
     var mode = state_data.mode;
 
+    const TICTACTOE_WORDS = ["tic", "tac", "toe", "game", "play", "tictac", "tictoe", "tactoe"];
+
     if (user_is_new) {
         mode_newuser(reqData, res, number);
     } else if (reqData.toLowerCase() == "rant") {
-        mode_rant(reqData, res, number)
+        mode_rant(reqData, res, number);
+    } else if (has_word_in_list(reqData, TICTACTOE_WORDS)) {
+        mode_tictactoe(reqData, res, number);
     }
 }
 
@@ -325,5 +342,187 @@ function mode_rant_history (reqData, res, number) {
     state_data.phase = 0;
     db.setData(number, "state", state_data);
 }
+
+
+function mode_tictactoe (reqData, res, number) {
+    state_data = db.getData(number, "state");
+    tictactoe_data = db.getData(number, "tictactoe");
+
+    const phase = state_data.phase;
+
+    switch(phase) {
+        // Starting the game of tictactoe.
+        // Ask the user whether they want to go first
+        case 0:
+            texter.sendMsg(number, phrase.tictactoe_moveorder());
+
+            state_data.mode = txtMode.tic_tac_toe;
+            state_data.phase += 1;
+            break;
+        
+        // The user responded to whether they go first.
+        // Now we setup the board, and then start playing.
+        case 1:
+            const userGoesFirst = is_in_list(reqData, YES_STR);
+            const compGoesFirst = is_in_list(reqData, NO_STR);
+
+            if (!userGoesFirst && !compGoesFirst) {
+                texter.sendMsg(number, phrase.unable_to_understand());
+                return;
+            }
+
+            tictactoe_data = {
+                "user_move": userGoesFirst,
+                "board": [
+                    " ", " ", " ", 
+                    " ", " ", " ",
+                    " ", " ", " "
+                ]
+            };
+            texter.sendMsg(number, phrase.tictactoe_beginning());
+            state_data.phase += 1;
+
+            if (userGoesFirst) {
+                texter.sendMsg(number, phrase.tictactoe_userstart());
+            } else {
+                const computerMove = tictactoe_selectmove(tictactoe_data.board);
+                tictactoe_data.board[computerMove] = "O";
+                texter.sendMsg(numer, phrase.tictactoe_board(tictactoe_data.board));
+                texter.sendMsg(number, phrase.tictactoe_usermove());
+            }
+
+            db.setData(number, "tictactoe", tictactoe_data);
+            db.setData(number, "state", state_data);
+
+            break;
+
+        // Actual game logic
+        // The user is always X, while the computer is O
+        // Algorithm used is just randomness
+        case 2:
+            // Read user move
+            const number_choice = parse_number_input(reqData, 1, 9) - 1;
+            if (number_choice === -2 || tictactoe_data.board[number_choice] !== " ") {
+                texter.sendMsg(number, phrase.invalid_choice());
+                return;
+            }
+            tictactoe_data.board[number_choice] = "X";
+
+            let gamestate = tictactoe_winstatus(tictactoe_data.board);
+
+            if (gamestate === "") {
+                const computerMove = tictactoe_selectmove(tictactoe_data.board);
+                tictactoe_data.board[computerMove] = "O";
+                gamestate = tictactoe_winstatus(tictactoe_data.board);
+            }
+
+            texter.sendMsg(number, phrase.tictactoe_board(tictactoe_data.board));
+
+            switch (gamestate) {
+                case "":
+                    break;
+
+                case "tie":
+                    texter.sendMsg(number, phrase.tictactoe_tie());
+                    break
+                
+                case "user":
+                    texter.sendMsg(number, phrase.tictactoe_userwin());
+                    break;
+
+                case "computer":
+                    texter.sendMsg(number, phrase.tictactoe_compwin());
+                    break;
+            }
+
+            if (gamestate !== "") {
+                state_data.mode = txtMode.default;
+                state_data.phase = 0;
+            }
+            break;
+    }
+
+    db.setData(number, "state", state_data);
+    db.setData(number, "tictactoe", tictactoe_data);
+}
+
+
+// Returns "", "tie", "user", "computer" depending
+// on who won or if the game is still going
+function tictactoe_winstatus (board) {
+    let sums;
+    let chars = ['X', 'O'];
+
+    // Check for winners (ugly but it works lmao)
+    const userWin = (
+        // Horizontal
+        (board[0] === 'X' && board[1] === 'X' && board[2] === 'X') ||
+        (board[3] === 'X' && board[4] === 'X' && board[5] === 'X') ||
+        (board[6] === 'X' && board[7] === 'X' && board[8] === 'X') ||
+
+        // Vertical
+        (board[0] === 'X' && board[3] === 'X' && board[6] === 'X') ||
+        (board[1] === 'X' && board[4] === 'X' && board[7] === 'X') ||
+        (board[2] === 'X' && board[5] === 'X' && board[8] === 'X') ||
+
+        // Diagonal
+        (board[0] === 'X' && board[4] === 'X' && board[8] === 'X') ||
+        (board[6] === 'X' && board[4] === 'X' && board[2] === 'X')
+    );
+
+    const compWin = (
+        // Horizontal
+        (board[0] === 'O' && board[1] === 'O' && board[2] === 'O') ||
+        (board[3] === 'O' && board[4] === 'O' && board[5] === 'O') ||
+        (board[6] === 'O' && board[7] === 'O' && board[8] === 'O') ||
+
+        // Vertical
+        (board[0] === 'O' && board[3] === 'O' && board[6] === 'O') ||
+        (board[1] === 'O' && board[4] === 'O' && board[7] === 'O') ||
+        (board[2] === 'O' && board[5] === 'O' && board[8] === 'O') ||
+
+        // Diagonal
+        (board[0] === 'O' && board[4] === 'O' && board[8] === 'O') ||
+        (board[6] === 'O' && board[4] === 'O' && board[2] === 'O')
+    );
+
+    if (userWin) {
+        return "user";
+    }
+    if (compWin) {
+        return "copmuter";
+    }
+    
+    // Check for remaining legal moves
+    for (let j=0; j<9; j++) {
+        if (board[j] === " ")
+            return "";
+    }
+
+    // No more moves = tie
+    return "tie";
+}
+
+
+function tictactoe_getlegalmoves (board) {
+    moves = [];
+
+    board.forEach((elm, index) => {
+        if (elm === " ")
+            moves.push(index);
+    });
+
+    console.log(`Found legal moves for ${board}: ${moves}`);
+
+    return moves;
+}
+
+
+function tictactoe_selectmove (board) {
+    const possible_moves = tictactoe_getlegalmoves(board);
+    const random_ind = Math.floor(Math.random() * possible_moves.length);
+    return possible_moves[random_ind];
+}
+
 
 

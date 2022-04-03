@@ -19,6 +19,15 @@ const responses = {
     rant_history_sending: (rantName) => `I'm now sending over "${rantName}".`,
     rant_history_empty: () => "This rant is empty!",
 
+	tictactoe_moveorder: () => "Do you want to go first?",
+	tictactoe_beginning: () => "Oo yay! Let's label the cells like this:\n1 | 2 | 3\n----------\n4 | 5 | 6\n----------\n7 | 8 | 9\nI'll be O, you be Xs",
+	tictactoe_board: (board) => `${board[0]} | ${board[1]} | ${board[2]}\n----------\n${board[3]} | ${board[4]} | ${board[5]}\n----------\n${board[6]} | ${board[7]} | ${board[8]}`,
+	tictactoe_userstart: () => "You start, so make your move!",
+	tictactoe_usermove: () => "I went, it's your move now!",
+	tictactoe_tie: () => "And it's a tie after all!",
+	tictactoe_compwin: () => "Better luck next time!",
+	tictactoe_userwin: () => "Well played!",
+
     unable_to_understand: () => "Sorry, I don't understand. Can you try again?",
     invalid_choice: () => "Sorry, that's an invalid choice. Can you try again?"
 
