@@ -1,9 +1,7 @@
 // TODO: Have multiple possible strings
 
 const responses = {
-    new_thanks: () => "Thank you for signing up!",
-    new_explanation: () => "There are two ways to use this text journal. You can rant by typing RANT which allows you to continuously type. The second option is responding when you receieve a text",
-    new_subscribe: () => "Do you want to subscribe (yes/no)?",
+    new_explanation: () => "Hi! I'm Leafly, your new buddy. I give you little daily goals so you can make steps towards your focus. Are you in (yes/no)?",
     new_notsubbed: () => "Okie doke! If you ever feel like coming just text again!",
 
     unsub_return: () => "Hello again! Do you want to subscribe now (yes/no)?",
@@ -29,7 +27,16 @@ const responses = {
 	tictactoe_userwin: () => "Well played!",
 
     unable_to_understand: () => "Sorry, I don't understand. Can you try again?",
-    invalid_choice: () => "Sorry, that's an invalid choice. Can you try again?"
+    invalid_choice: () => "Sorry, that's an invalid choice. Can you try again?",
+
+	profile_firstprompt: () => "Thanks for signing up! Do you have a moment to setup a profile?",
+	profile_reject_first: () => "Thats ok! If you ever want to setup it up, just use the menu",
+	profile_name: () => "Let's start with something simple - what's your name?",
+	profile_list_goals: (goalList) => `Nice name! Which of the following is do you want to work on most: ${goalList.map((name, index) => {return `(${index+1}) ${name}`;}).join(", ")}?`,
+	profile_specifics_prompt: (specifics) => `Lets refine that goal a little. For example you could focus more specifically on ${specifics.join(", ")}. List some more specific areas of focus, comma seperated.`,
+	profile_confirmation: (name, goal, specifics) => `To confirm, is everything here correct?\nName: ${name}\nGoal: ${goal}\nFocus: ${specifics.join(", ")}`,
+	profile_everything_correct: () => "Wonderful!",
+
 
 }
 

@@ -84,6 +84,13 @@
 			 console.log(`Setting data for user ${user_number} who doesn't exist. Creating default files`);
 			 DBWrapper.addUser(user_number);
 		 }
+
+		 if (table === "state") {
+			 console.log(`> ${new_json.phase}, ${new_json.mode}`)
+			 if (!new_json.mode) {
+				 throw error;
+			 }
+		 }
  
 		 fs.writeFileSync(path.join(__dirname, 'db', user_number, table + ".json"), JSON.stringify(new_json), 'utf-8');
 	 }

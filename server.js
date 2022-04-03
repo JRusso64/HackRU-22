@@ -15,8 +15,10 @@ const bodyParsers = require('body-parser');
 var MessagingResponse = require('twilio').twiml.MessagingResponse;
 
 const phrase = require('./strings');
+const healthActions = require('./actions');
 const texter = require('./texter');
 const db = require('./dbwrapper');
+const { text } = require('body-parser');
 
 const router = express.Router();
 
@@ -43,7 +45,8 @@ var wantSubscribe;
 
 const txtMode = {
     default: 'default',
-    new_user: 'new_user',
+    profile_setup: 'profile_setup',
+    profile: 'profile',
     day_rating: 'day_rating',
     unsubscribed: 'unsubscribed',
     rant: 'rant',
@@ -129,14 +132,24 @@ app.post('/message', (req, res) => {
             mode_unsubbed(reqData, res, number);
             break;
 
-        case txtMode.new_user:
-            mode_newuser(reqData, res, number);
+        
+        // Actual Health stuff
+        case txtMode.profile:
+            mode_profile(reqData, res, number);
+            break;
+        
+        case txtMode.profile_setup:
+            mode_profile_setup(reqData, res, number);
             break;
 
+
+        // TODO
         case txtMode.day_rating:
             mode_dayrate(reqData, res, number);
             break;
 
+
+        // Applet
         case txtMode.rant:
             mode_rant(reqData, res, number);
             break;
@@ -145,6 +158,8 @@ app.post('/message', (req, res) => {
             mode_rant_history(reqData, res, number);
             break;
 
+
+        // Needs testing but I don't think it's worth touching right now
         case txtMode.tic_tac_toe:
             mode_tictactoe(reqData, res, number);
             break;
@@ -159,57 +174,25 @@ function switch_to_mode(reqData, res, number) {
     var resp = new MessagingResponse();
     var state_data = db.getData(number, 'state');
 
-    var user_is_new = state_data.new_user;
+    var is_profile_setup = state_data.profile_setup;
     var mode = state_data.mode;
 
+    const PROFILESETUP_WORDS = ["profile", "setup"];
     const TICTACTOE_WORDS = ["tic", "tac", "toe", "game", "play", "tictac", "tictoe", "tactoe"];
+    const RANT_WORDS = ["rant", "vent"];
 
-    if (user_is_new) {
-        mode_newuser(reqData, res, number);
-    } else if (reqData.toLowerCase() == "rant") {
+    if (!is_profile_setup) {
+        mode_profile_setup(reqData, res, number);
+
+    } else if (has_word_in_list(reqData, PROFILESETUP_WORDS)) {
+        mode_profile(reqData, res, number);
+
+    } else if (has_word_in_list(reqData, RANT_WORDS)) {
         mode_rant(reqData, res, number);
+
     } else if (has_word_in_list(reqData, TICTACTOE_WORDS)) {
         mode_tictactoe(reqData, res, number);
     }
-}
-
-
-function mode_newuser(reqData, res, number) {
-    var state_data = db.getData(number, "state");
-    var phase = state_data.phase; /* database lookup */
-    console.log(`[${String(number).substring(0,4)}] In mode newuser with phase ${phase}`);
-
-    switch (phase) {
-        case 0:
-            texter.sendMsg(number, phrase.new_subscribe());
-
-            state_data.phase = 1;
-            state_data.mode = txtMode.new_user;
-            break;
-
-        case 1:
-            // Record text & respond based on if they want to join
-            reqData = reqData.trim().toLowerCase();
-
-            if (reqData.charAt(0) == 'y') {
-                texter.sendMsg(number, phrase.new_thanks());
-                texter.sendMsg(number, phrase.new_explanation());
-                
-                state_data.new_user = false;
-                state_data.phase = 0;
-                state_data.mode = txtMode.default;
-            } else {
-                texter.sendMsg(number, phrase.new_notsubbed());
-
-                state_data.subscribed = false;
-                state_data.phase = 0;
-                state_data.mode = txtMode.unsubscribed;
-            }
-
-            break;
-    }
-
-    db.setData(number, "state", state_data);
 }
 
 
@@ -224,7 +207,7 @@ function mode_unsubbed(reqData, res, number) {
         case 0:
             texter.sendMsg(number, phrase.unsub_return());
             state_data.phase = 1;
-            state_data.mode = txtMode.new_user;
+            state_data.mode = txtMode.profile_setup;
             break;
     }
 
@@ -232,9 +215,159 @@ function mode_unsubbed(reqData, res, number) {
 }
 
 
+function mode_profile_setup(reqData, res, number) {
+    let state_data = db.getData(number, 'state');
+    let profile_data = db.getData(number, 'profile');
+
+    const phase = state_data.phase;
+
+    let agreed, rejected, specifics;
+
+    console.log(`Inside profile setup function. Phase ${phase} and mode ${state_data.mode}`);
+
+    switch (phase) {
+        // First message, a confirmation you want messages
+        case 0:
+            texter.sendMsg(number, phrase.new_explanation());
+            state_data.mode = txtMode.profile_setup;
+            state_data.phase += 1;
+            break;
+        
+        // Second message
+        // Respond to confirmation & prompt about profile setup
+        case 1:
+            agreed = is_in_list(reqData, YES_STR);
+            rejected = is_in_list(reqData, NO_STR);
+
+            if (!agreed && !rejected) {
+                texter.sendMsg(number, phrase.unable_to_understand);
+                return;
+            }
+
+            if (agreed) {
+                texter.sendMsg(number, phrase.profile_firstprompt())
+                state_data.phase += 1;
+            } else {
+                texter.sendMsg(number, phrase.new_notsubbed());
+                state_data.phase=0;
+                state_data.mode=txtMode.unsubscribed;
+            }
+            break;
+        
+        // Third message
+        // Figure out do they want to setup their profile rn
+        case 2: // <=== This is where to jump to if I want to setup from the menu
+            agreed = is_in_list(reqData, YES_STR);
+            rejected = is_in_list(reqData, NO_STR);
+
+            if (!agreed && !rejected) {
+                texter.sendMsg(number, phrase.unable_to_understand());
+                return;
+            }
+
+            if (agreed) {
+                texter.sendMsg(number, phrase.profile_name());
+                state_data.phase += 1;
+
+            } else {
+                texter.sendMsg(number, phrase.profile_reject_first());
+                state_data.phase = 0;
+                state_data.mode = txtMode.default;
+            }
+            break;
+
+        // Fourth message
+        // Read in their name and ask about goals
+        case 3:
+            const name = reqData.trim();
+
+            if (name.length === 0) {
+                texter.sendMsg(number, phrase.unable_to_understand());
+                return;
+            }
+
+            texter.sendMsg(number, phrase.profile_list_goals(healthActions.goals));
+
+            profile_data.name = name;
+            state_data.phase += 1;
+            break;
+        
+        // Fifth message
+        // Read in their goals and ask about specifications
+        case 4:
+            const max_ind = healthActions.goals.length;
+            const number_choice = parse_number_input(reqData, 1, max_ind) - 1;
+
+            if (number_choice == -2) {
+                texter.sendMsg(number, phrase.unable_to_understand());
+                return;
+            }
+
+            specifics = healthActions['focus-prompts'][number_choice];
+            texter.sendMsg(number, phrase.profile_specifics_prompt(specifics));
+
+            profile_data.goal = number_choice;
+            state_data.phase += 1;
+            break;
+        
+        // Sixth message
+        // Read in their specifics and confirm all info
+        case 5:
+            specifics = reqData.trim().toLowerCase().split(",");
+            specifics = specifics.map(elm => elm.trim());
+            specifics = specifics.filter(elm => elm !== "");
+            profile_data.specifics = specifics;
+
+            console.log(`Specifics: ${specifics}`);
+            const locName = profile_data.name;
+            const locGoal = profile_data.goal;
+            texter.sendMsg(number, phrase.profile_confirmation(locName, locGoal, specifics));
+
+            state_data.phase += 1;
+            break;
+        
+        case 6:
+            console.log("In case 6")
+            agreed = is_in_list(reqData, YES_STR);
+            rejected = is_in_list(reqData, NO_STR);
+
+            if (!agreed && !rejected) {
+                texter.sendMsg(number, phrase.unable_to_understand());
+                return;
+            }
+
+            console.log(`Agreed: ${agreed}, `);
+
+            if (agreed) {
+                // if ok
+                texter.sendMsg(number, phrase.profile_everything_correct());
+                state_data.phase = 0;
+                state_data.mode = txtMode.default;
+            } else {
+                // Loop back around here
+                texter.sendMsg(number, phrase.profile_name());
+                state_data.phase = 3;
+                state_data.mode = txtMode.profile_setup;
+            }
+            break;
+
+    }
+
+
+    db.setData(number, "state", state_data);
+    db.setData(number, "profile", profile_data);
+}
+
+
+function mode_profile(reqData, res, number) {
+    console.log("mode_profile called but it's not setup yet");
+}
+
+
 // TODO
 function mode_dayrate(reqData, res, number){
 }
+
 
 
 function mode_rant(reqData, res, number) {

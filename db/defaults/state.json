@@ -1,7 +1,7 @@
 {
-	"mode": "new_user",
+	"mode": "profile_setup",
 	"phase": 0,
-	"new_user": true,
+	"profile_setup": false,
 	"subscribed": true,
 	"pageNum": 0
 }
