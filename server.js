@@ -10,19 +10,11 @@ const schedule = require('node-schedule');
 const client = require('twilio')(process.env.ACCOUNTSID, process.env.AUTHTOKEN);
 const cors = require('cors');
 const logger = require('morgan');
-const mongoose = require('mongoose');
 const bodyParsers = require('body-parser');
 var MessagingResponse = require('twilio').twiml.MessagingResponse;
 
-// ok
-
-
-// mongoose
-const dbConfig = require('./db/dbconfig');
-mongoose.connect(dbConfig.dbUrl, dbConfig.dbOptions, (err) => {
-	if (err) { console.error(err); }
-	else 	 { console.log('Connected to mongodb succesfully :)'); }
-});
+// db stuff
+const dbWrapper = require('./dbwrapper');
 
 const router = express.Router();
 
@@ -35,6 +27,12 @@ app.use(bodyParsers.urlencoded({ extended: true }));
 app.use(bodyParsers.json());
 
 app.get('/', (req, res) => res.send("Hello!"));
+
+app.get('/test', (req, res) => {
+  console.log(dbWrapper.dayRatingAdd(7322586902, '2021', 'asd', 5));
+
+  res.send("Hello!");
+});
 
 app.listen(PORT, () => console.log(`Now listening on port ${PORT} :)`));
 
