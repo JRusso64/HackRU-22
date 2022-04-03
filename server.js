@@ -118,7 +118,7 @@ function mode_newuser(reqData, res, number) {
         case 0:
             // Send confirmation of subscription text
             //resp.message("Do you want to subscribe?");
-            texter.sendMsg(number, phrase.subscribe);
+            texter.sendMsg(number, phrase.new_subscribe);
 
             console.log("Subscribe?")
             state_data = db.getData(number, "state"); /* database update */
@@ -134,8 +134,8 @@ function mode_newuser(reqData, res, number) {
             state_data = db.getData(number, "state");
 
             if(reqData.charAt(0) == 'y'){
-                texter.sendMsg(number, phrase.signup);
-                texter.sendMsg(number, phrase.intro);
+                texter.sendMsg(number, phrase.new_thanks);
+                texter.sendMsg(number, phrase.new_explanation);
                 
                 state_data.phase = 0;
                 state_data.mode = txtMode.default;
