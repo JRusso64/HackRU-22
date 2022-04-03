@@ -2,5 +2,6 @@
 	"mode": "new_user",
 	"phase": 0,
 	"new_user": true,
-	"subscribed": true
+	"subscribed": true,
+	"pageNum": 0
 }

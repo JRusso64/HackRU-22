@@ -186,6 +186,42 @@ function mode_rant(reqData, res, number) {
     db.setData(number, "state", state_data);
 }
 
+function mode_history(reqData, res, number) {
+  rant_data = db.getData(number, "rant");
+  state_data = db.getData(number,"state");
+  if(reqData == "stop") {
+    state_data.mode = txtMode.default;
+  }
+  var hist = "";
+  for(var i = 0; i < 3 && state_data.pageNum < rant_data.rant.length; i++) {
+    for(var message = 0; message < 3; message++) {
+      hist += rant_data[i][message] + " ;";
+      client.messages
+          .create({
+              body: hist,
+              from: "+15732502162",
+              to: number,
+          })
+          .then((message) => console.log(message.sid));
+    }
+    state_data.pageNum++;
+  }
+  hist = "";
+  client.messages
+            .create({
+                body: hist,
+                from: "+15732502162",
+                to: number,
+            })
+            .then((message) => console.log(message.sid));
+  client.messages
+              .create({
+                  body: "Would you like to view more past messages?",
+                  from: "+15732502162",
+                  to: number,
+              })
+}
+
 
 
 //
